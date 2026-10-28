@@ -1,4 +1,4 @@
-# ProdCrawl experiments
+# ProdCrawl
 
 This repository contains the code to reproduce the experiments of the ProdCrawl paper
 (ECIR 2027, Resource Track). ProdCrawl is a replayable test collection for focused
