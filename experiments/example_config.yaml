@@ -1,0 +1,24 @@
+# Configuration of one run: every site of one collection, one crawler process per site.
+# Copy this file, adjust it, and run:
+#   ./experiments/launch_crawling_experiment.sh --config my_config.yaml
+# The README lists the values used in the paper.
+
+seeds_path: "datasets/validation.txt"   # sites to crawl, one per line
+strategy: "EmbeddingCosSim"             # class in focused_crawler/common/scoring_strategies.py
+ranking: 10                             # k, anchor texts retrieved per link
+re_ranking: 0                           # BM25 window of the BM25EmbeddingCosSim cascade (0 otherwise)
+start_data: "coldstart"                 # evidence store: "coldstart" (online), the name of an
+                                        # offline store index, or both joined by "+"
+embeddings_model: "all-mpnet-base-v2"   # or "anchor-product-page-mpnet-base"; "" if unused
+use_embeddings: "yes"                   # store anchor embeddings in the run index (dense strategies)
+clean_anchors: "no"                     # lowercase and normalise whitespace before embedding
+score_option: "ratio"                   # similarity-weighted share of relevant neighbours
+anchor_window: 0                        # 0: anchor text only
+max_pages: 252                          # responses per site before the crawl stops (0: no limit)
+max_links_per_page: 100                 # links scored per downloaded page (0: no limit)
+max_concurrent_spiders: 50              # sites crawled in parallel
+test: 1                                 # 1: crawl the mirrors at MIRROR_URL; 0: the live web
+save_judgments: "no"                    # "yes" logs every scored link to JUDGMENTS_LOG_DIR
+db_dir: "data/labels.db"
+embeddings_cache: "data/embeddings.db"  # data/embeddings_finetuned.db for the fine-tuned encoder
+nlp_api_url: "http://localhost:8030"
