@@ -29,7 +29,7 @@ focused_crawler/            Scrapy project: spider, scoring strategies, frontier
   common/queues.py            priority frontier (min-heap, FIFO among equal priorities)
   common/link_extractors.py   link extraction
   common/db_utils.py          SQLite access: judgments and embedding caches
-  index/embeddings_indexer.py Elasticsearch queries (BM25, kNN, aNN, cascade)
+  index/embeddings_indexer.py Elasticsearch queries (BM25, kNN, aNN, hybrid)
   nlp/                        page text extraction and the trained classifier baselines
 experiments/
   run_spiders_runner.py       runs one configuration: one crawler process per site
@@ -136,13 +136,19 @@ service's environment also provides the `hf` command, used in the next step.
 
 ### 2. Download the data
 
-For the first run, download the judgments and the WARC files of ten validation sites
+For the first run, you can choose to download the judgments and the WARC files of ten validation sites
 (about 300 MB):
 
 ```bash
 awk 'NR % 17 == 9' datasets/validation.txt > first_run_sites.txt
 .venv-nlp/bin/hf download irlab-udc/prodcrawl --repo-type dataset --local-dir ../prodcrawl-data \
   --include "judgments/*" $(sed 's|.*|--include warcs/validation/&.warc.gz|' first_run_sites.txt)
+```
+
+or either go for the entire collection:
+
+```bash
+.venv-nlp/bin/hf download irlab-udc/prodcrawl --repo-type dataset --local-dir ../prodcrawl-data
 ```
 
 `datasets/validation.txt` lists the validation sites from the largest to the
@@ -349,7 +355,7 @@ name.
 
 Our runs used a 64-CPU node, with Elasticsearch and the embedding service on other
 machines. A run over the validation sites took a median of about 20 minutes with BM25
-or the BM25→kNN cascade, 3.5 to 6.5 hours with approximate kNN, and 9 hours with exact
+or the BM25→kNN hybrid, 3.5 to 6.5 hours with approximate kNN, and 9 hours with exact
 kNN, which compares each link with every document of its evidence store.
 
 ### 10. Build the offline evidence stores
@@ -499,7 +505,7 @@ template. Fields:
 | `seeds_path` | sites to crawl: `datasets/training.txt`, `validation.txt` or `testing.txt` |
 | `strategy` | scoring class in `focused_crawler/common/scoring_strategies.py` |
 | `ranking` | k, the number of anchor texts retrieved |
-| `re_ranking` | window of the BM25 first stage in the cascade |
+| `re_ranking` | window of the BM25 first stage in the hybrid |
 | `start_data` | evidence store: `coldstart` (online), the index name of an offline store, or both joined by `+` |
 | `embeddings_model` | `all-mpnet-base-v2` or `anchor-product-page-mpnet-base` |
 | `use_embeddings` | store anchor-text embeddings in the run index (needed by the dense strategies) |
@@ -523,14 +529,14 @@ Settings of the experiments reported in the paper:
 | BM25 | `BM25` | 5, 10, 15, 20 | | online, offline |
 | exact kNN | `EmbeddingCosSim` | 5, 10, 15, 20, 50 | | online, offline, combined |
 | approximate kNN | `EmbeddingCosSimAproximated` | 5, 10, 15, 20, 50 | | online, offline, combined (80-shard copies) |
-| BM25→kNN cascade | `BM25EmbeddingCosSim` | 5, 10, 15, 20, 50 | 50, 100, 150, 200, 500 | online, offline, combined |
+| BM25→kNN hybrid | `BM25EmbeddingCosSim` | 5, 10, 15, 20, 50 | 50, 100, 150, 200, 500 | online, offline, combined |
 
-- The dense strategies (kNN, approximate kNN, cascade) ran with each encoder:
+- The dense strategies (kNN, approximate kNN, hybrid) ran with each encoder:
   `all-mpnet-base-v2` with `clean_anchors: "no"` and `data/embeddings.db`, and
   `anchor-product-page-mpnet-base` with `clean_anchors: "yes"` and
   `data/embeddings_finetuned.db`. They set `use_embeddings: "yes"`; the other
   approaches set `"no"`.
-- The cascade skipped k = w = 50. Approximate kNN also ran with k = 25, with the
+- The hybrid skipped k = w = 50. Approximate kNN also ran with k = 25, with the
   generic encoder and the offline and combined stores.
 - All runs used `score_option: "ratio"`, `anchor_window: 0`, `max_links_per_page: 100`
   and `max_concurrent_spiders: 50`, with `max_pages: 252` on the validation sites and
