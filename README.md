@@ -536,19 +536,9 @@ Settings of the experiments reported in the paper:
   `anchor-product-page-mpnet-base` with `clean_anchors: "yes"` and
   `data/embeddings_finetuned.db`. They set `use_embeddings: "yes"`; the other
   approaches set `"no"`.
-- The hybrid skipped k = w = 50. Approximate kNN also ran with k = 25, with the
-  generic encoder and the offline and combined stores.
+- The hybrid skipped k = w = 50.
 - All runs used `score_option: "ratio"`, `anchor_window: 0`, `max_links_per_page: 100`
-  and `max_concurrent_spiders: 50`, with `max_pages: 252` on the validation sites and
-  265 on the test sites.
-
-## Adding a prioritisation strategy
-
-Subclass `ScoreStrategy` in `focused_crawler/common/scoring_strategies.py` and
-implement `get_score(request, **kwargs)`, returning a score in [0, 1]. Higher scores
-are downloaded first. The keyword arguments carry the evidence store, k, the embedding
-model and the paths of the databases. Then set `strategy: <ClassName>` in a
-configuration. The run is evaluated like any other.
+  and `max_concurrent_spiders: 50`.
 
 ## Trained models
 
@@ -558,31 +548,6 @@ trained classifiers in `focused_crawler/nlp/models/`. The fine-tuned encoder,
 the training sites, so that anchors of product pages lie closer to each other and
 further from the anchors of other pages. The embedding service downloads it from
 Hugging Face.
-
-## Differences from the code used in the paper
-
-The crawling and scoring logic is unchanged. The following edits only replace
-settings of our cluster:
-
-- The Elasticsearch URL, the mirror server URL and the judgment log directory come
-  from the environment variables `ES_URL`, `MIRROR_URL` and `JUDGMENTS_LOG_DIR`. The
-  fine-tuned encoder path comes from `FINE_TUNED_MODEL`.
-- The limit of 100 links scored per page is the configuration field
-  `max_links_per_page`, so that the crawl that builds the offline store can run without
-  it. Its default keeps the behaviour of every experiment.
-- The launch script resolves the repository root and reads the commit hash from git.
-- Some classes were renamed and debug output was removed.
-- The SQLite connections wait up to 60 s, instead of 5 s, for a lock held by another
-  crawler process. The judgment log no longer creates its file with `open(path, "w")`,
-  which could empty a file that another process had just created. Neither change
-  affects the runs of the paper: their logs show no SQLite errors, and none of them
-  saved judgments.
-- The configuration template, the mirror server and the scripts in `scripts/data/` are
-  new.
-
-## Citation
-
-TODO
 
 ## License
 
