@@ -1,17 +1,17 @@
 # ProdCrawl
 
-This repository contains the code to reproduce the experiments of the ProdCrawl paper
-(ECIR 2027, Resource Track). ProdCrawl is a replayable test collection for focused
-crawling. It holds static mirrors of 621 company and organisation websites and a
-relevance judgment for every page, for the predicate *"is this a product page?"*.
+This repository contains the code to reproduce the experiments of ProdCrawl, a replayable test collection for focused crawling. 
+It holds static mirrors of 621 company and organization websites and a relevance judgment for every page, for the predicate *"is this a product page?"*.
 
 The repository includes:
 
 - the focused crawler (Scrapy), with the baselines (BFS, DFS, SVM and Naive Bayes
   anchor-text classifiers) and the retrieval-based anchor scoring strategies (BM25,
-  exact kNN, approximate kNN, and a BM25→kNN cascade);
-- a configuration template and the settings of the reported experiments;
-- the embedding service and the scripts to unpack and serve the mirrors.
+  exact kNN, approximate kNN, and hybrid ranking);
+- a configuration template to run the experiments (example_config.yaml)
+- and the settings of the reported experiments
+- the embedding service
+- the scripts to unpack and serve the mirrors.
 
 The data are released separately:
 
