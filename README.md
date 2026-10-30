@@ -1,17 +1,15 @@
-# ProdCrawl experiments
+# ProdCrawl
 
-This repository contains the code to reproduce the experiments of the ProdCrawl paper
-(ECIR 2027, Resource Track). ProdCrawl is a replayable test collection for focused
-crawling. It holds static mirrors of 621 company and organisation websites and a
-relevance judgment for every page, for the predicate *"is this a product page?"*.
+This repository contains the code to reproduce the experiments of ProdCrawl, a replayable test collection for focused crawling. 
+It holds static mirrors of 621 company and organization websites and a relevance judgment for every page, for the predicate *"is this a product page?"*.
 
 The repository includes:
 
 - the focused crawler (Scrapy), with the baselines (BFS, DFS, SVM and Naive Bayes
   anchor-text classifiers) and the retrieval-based anchor scoring strategies (BM25,
-  exact kNN, approximate kNN, and a BM25→kNN cascade);
-- a configuration template and the settings of the reported experiments;
-- the embedding service and the scripts to unpack and serve the mirrors.
+  exact kNN, approximate kNN, and hybrid ranking);
+- the embedding service
+- the scripts to unpack and serve the mirrors.
 
 The data are released separately:
 
@@ -29,7 +27,7 @@ focused_crawler/            Scrapy project: spider, scoring strategies, frontier
   common/queues.py            priority frontier (min-heap, FIFO among equal priorities)
   common/link_extractors.py   link extraction
   common/db_utils.py          SQLite access: judgments and embedding caches
-  index/embeddings_indexer.py Elasticsearch queries (BM25, kNN, aNN, cascade)
+  index/embeddings_indexer.py Elasticsearch queries (BM25, kNN, aNN, hybrid)
   nlp/                        page text extraction and the trained classifier baselines
 experiments/
   run_spiders_runner.py       runs one configuration: one crawler process per site
@@ -97,18 +95,6 @@ runs can differ slightly.
 
 ## Running the experiments
 
-This guide goes from a fresh machine to a first run on ten validation sites (steps 1
-to 8), and then to the runs of the paper (steps 9 and 10). Commands run from the
-repository root. Most steps end with a command that checks their result.
-
-The crawler needs three services, which keep running while it crawls:
-
-| Service | What it does | Started in |
-|---|---|---|
-| Mirror server (Apache) | serves the unpacked mirrors | step 4 |
-| Elasticsearch | stores each run and the offline evidence stores | step 5 |
-| Embedding service | embeds anchor texts with the two encoders | step 6 |
-
 ### 1. Install the crawler and the embedding service
 
 The crawler and the embedding service pin different package versions, so each has its
@@ -136,13 +122,19 @@ service's environment also provides the `hf` command, used in the next step.
 
 ### 2. Download the data
 
-For the first run, download the judgments and the WARC files of ten validation sites
+For the first run, you can choose to download the judgments and the WARC files of ten validation sites
 (about 300 MB):
 
 ```bash
 awk 'NR % 17 == 9' datasets/validation.txt > first_run_sites.txt
 .venv-nlp/bin/hf download irlab-udc/prodcrawl --repo-type dataset --local-dir ../prodcrawl-data \
   --include "judgments/*" $(sed 's|.*|--include warcs/validation/&.warc.gz|' first_run_sites.txt)
+```
+
+or either go for the entire collection:
+
+```bash
+.venv-nlp/bin/hf download irlab-udc/prodcrawl --repo-type dataset --local-dir ../prodcrawl-data
 ```
 
 `datasets/validation.txt` lists the validation sites from the largest to the
@@ -307,10 +299,6 @@ curl -s "$ES_URL/*-first_run_sites-*/_search?size=0" -H 'Content-Type: applicati
        "aggs": {"relevant": {"filter": {"term": {"label": true}}}}}}}'
 ```
 
-Our first run ended with no tracebacks and about 1,200 pages in the index. Four sites
-stopped at the budget (`closespider_pagecount`) and six ran out of links to follow
-(`finished`). The last command gives the pages and relevant pages downloaded per site.
-
 Some responses have status 404: a few links point to files that the mirrors do not
 hold. A 404 takes no position in the download order. It does count towards
 `max_pages`, which limits responses.
@@ -349,12 +337,12 @@ name.
 
 Our runs used a 64-CPU node, with Elasticsearch and the embedding service on other
 machines. A run over the validation sites took a median of about 20 minutes with BM25
-or the BM25→kNN cascade, 3.5 to 6.5 hours with approximate kNN, and 9 hours with exact
+or the BM25→kNN hybrid, 3.5 to 6.5 hours with approximate kNN, and 9 hours with exact
 kNN, which compares each link with every document of its evidence store.
 
 ### 10. Build the offline evidence stores
 
-The offline store holds the labelled anchor texts of the training sites. Build it once,
+The offline store holds the labeled anchor texts of the training sites. Build it once,
 with an exhaustive breadth-first crawl of the training sites. Unpack the training
 mirrors (steps 2 and 3, with `--include "warcs/train/*"`), copy
 `experiments/example_config.yaml` to `training_store.yaml`, and set
@@ -362,7 +350,7 @@ mirrors (steps 2 and 3, with `--include "warcs/train/*"`), copy
 ```yaml
 seeds_path: "datasets/training.txt"
 strategy: "BreadthFirstSearchScore"
-ranking: 10
+ranking: 0
 use_embeddings: "yes"
 embeddings_model: "all-mpnet-base-v2"
 max_pages: 0
@@ -374,9 +362,11 @@ max_links_per_page: 0
 ```
 
 The crawl writes the index
-`breadthfirstsearchscore-top10-re_ranking0-coldstart-ratio-<commit>-training-all-mpnet-base-v2`,
+`breadthfirstsearchscore-top0-re_ranking0-coldstart-ratio-<commit>-training-all-mpnet-base-v2`,
 where `<commit>` is the commit of your checkout. This index is the offline store for
-the generic encoder. For the fine-tuned encoder, run the same crawl again with
+the generic encoder. The key to differentiate it from other BFS runs is "training" keywords (
+if you want your applications or services to reference a new name without moving or copying physical data, 
+you can use an index alias). For the fine-tuned encoder, run the same crawl again with
 
 ```yaml
 embeddings_model: "anchor-product-page-mpnet-base"
@@ -385,7 +375,7 @@ embeddings_cache: "data/embeddings_finetuned.db"
 ```
 
 which writes the same pages, embedded with that encoder, to
-`breadthfirstsearchscore-top10-re_ranking0-coldstart-ratio-<commit>-training-anchor-product-page-mpnet-base`.
+`breadthfirstsearchscore-top0-re_ranking0-coldstart-ratio-<commit>-training-anchor-product-page-mpnet-base`.
 
 A run uses an offline store through its `start_data` field: the store's index name, or
 `coldstart+<name>` for the combined store. Approximate kNN searches 1,000 candidates
@@ -499,7 +489,7 @@ template. Fields:
 | `seeds_path` | sites to crawl: `datasets/training.txt`, `validation.txt` or `testing.txt` |
 | `strategy` | scoring class in `focused_crawler/common/scoring_strategies.py` |
 | `ranking` | k, the number of anchor texts retrieved |
-| `re_ranking` | window of the BM25 first stage in the cascade |
+| `re_ranking` | window of the BM25 first stage in the hybrid |
 | `start_data` | evidence store: `coldstart` (online), the index name of an offline store, or both joined by `+` |
 | `embeddings_model` | `all-mpnet-base-v2` or `anchor-product-page-mpnet-base` |
 | `use_embeddings` | store anchor-text embeddings in the run index (needed by the dense strategies) |
@@ -523,26 +513,16 @@ Settings of the experiments reported in the paper:
 | BM25 | `BM25` | 5, 10, 15, 20 | | online, offline |
 | exact kNN | `EmbeddingCosSim` | 5, 10, 15, 20, 50 | | online, offline, combined |
 | approximate kNN | `EmbeddingCosSimAproximated` | 5, 10, 15, 20, 50 | | online, offline, combined (80-shard copies) |
-| BM25→kNN cascade | `BM25EmbeddingCosSim` | 5, 10, 15, 20, 50 | 50, 100, 150, 200, 500 | online, offline, combined |
+| BM25→kNN hybrid | `BM25EmbeddingCosSim` | 5, 10, 15, 20, 50 | 50, 100, 150, 200, 500 | online, offline, combined |
 
-- The dense strategies (kNN, approximate kNN, cascade) ran with each encoder:
+- The dense strategies (kNN, approximate kNN, hybrid) ran with each encoder:
   `all-mpnet-base-v2` with `clean_anchors: "no"` and `data/embeddings.db`, and
   `anchor-product-page-mpnet-base` with `clean_anchors: "yes"` and
   `data/embeddings_finetuned.db`. They set `use_embeddings: "yes"`; the other
   approaches set `"no"`.
-- The cascade skipped k = w = 50. Approximate kNN also ran with k = 25, with the
-  generic encoder and the offline and combined stores.
+- The hybrid skipped k = w = 50.
 - All runs used `score_option: "ratio"`, `anchor_window: 0`, `max_links_per_page: 100`
-  and `max_concurrent_spiders: 50`, with `max_pages: 252` on the validation sites and
-  265 on the test sites.
-
-## Adding a prioritisation strategy
-
-Subclass `ScoreStrategy` in `focused_crawler/common/scoring_strategies.py` and
-implement `get_score(request, **kwargs)`, returning a score in [0, 1]. Higher scores
-are downloaded first. The keyword arguments carry the evidence store, k, the embedding
-model and the paths of the databases. Then set `strategy: <ClassName>` in a
-configuration. The run is evaluated like any other.
+  and `max_concurrent_spiders: 50`.
 
 ## Trained models
 
@@ -552,31 +532,6 @@ trained classifiers in `focused_crawler/nlp/models/`. The fine-tuned encoder,
 the training sites, so that anchors of product pages lie closer to each other and
 further from the anchors of other pages. The embedding service downloads it from
 Hugging Face.
-
-## Differences from the code used in the paper
-
-The crawling and scoring logic is unchanged. The following edits only replace
-settings of our cluster:
-
-- The Elasticsearch URL, the mirror server URL and the judgment log directory come
-  from the environment variables `ES_URL`, `MIRROR_URL` and `JUDGMENTS_LOG_DIR`. The
-  fine-tuned encoder path comes from `FINE_TUNED_MODEL`.
-- The limit of 100 links scored per page is the configuration field
-  `max_links_per_page`, so that the crawl that builds the offline store can run without
-  it. Its default keeps the behaviour of every experiment.
-- The launch script resolves the repository root and reads the commit hash from git.
-- Some classes were renamed and debug output was removed.
-- The SQLite connections wait up to 60 s, instead of 5 s, for a lock held by another
-  crawler process. The judgment log no longer creates its file with `open(path, "w")`,
-  which could empty a file that another process had just created. Neither change
-  affects the runs of the paper: their logs show no SQLite errors, and none of them
-  saved judgments.
-- The configuration template, the mirror server and the scripts in `scripts/data/` are
-  new.
-
-## Citation
-
-TODO
 
 ## License
 
