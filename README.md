@@ -8,8 +8,6 @@ The repository includes:
 - the focused crawler (Scrapy), with the baselines (BFS, DFS, SVM and Naive Bayes
   anchor-text classifiers) and the retrieval-based anchor scoring strategies (BM25,
   exact kNN, approximate kNN, and hybrid ranking);
-- a configuration template to run the experiments (example_config.yaml)
-- and the settings of the reported experiments
 - the embedding service
 - the scripts to unpack and serve the mirrors.
 
