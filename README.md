@@ -95,18 +95,6 @@ runs can differ slightly.
 
 ## Running the experiments
 
-This guide goes from a fresh machine to a first run on ten validation sites (steps 1
-to 8), and then to the runs of the paper (steps 9 and 10). Commands run from the
-repository root. Most steps end with a command that checks their result.
-
-The crawler needs three services, which keep running while it crawls:
-
-| Service | What it does | Started in |
-|---|---|---|
-| Mirror server (Apache) | serves the unpacked mirrors | step 4 |
-| Elasticsearch | stores each run and the offline evidence stores | step 5 |
-| Embedding service | embeds anchor texts with the two encoders | step 6 |
-
 ### 1. Install the crawler and the embedding service
 
 The crawler and the embedding service pin different package versions, so each has its
