@@ -299,10 +299,6 @@ curl -s "$ES_URL/*-first_run_sites-*/_search?size=0" -H 'Content-Type: applicati
        "aggs": {"relevant": {"filter": {"term": {"label": true}}}}}}}'
 ```
 
-Our first run ended with no tracebacks and about 1,200 pages in the index. Four sites
-stopped at the budget (`closespider_pagecount`) and six ran out of links to follow
-(`finished`). The last command gives the pages and relevant pages downloaded per site.
-
 Some responses have status 404: a few links point to files that the mirrors do not
 hold. A 404 takes no position in the download order. It does count towards
 `max_pages`, which limits responses.
@@ -346,7 +342,7 @@ kNN, which compares each link with every document of its evidence store.
 
 ### 10. Build the offline evidence stores
 
-The offline store holds the labelled anchor texts of the training sites. Build it once,
+The offline store holds the labeled anchor texts of the training sites. Build it once,
 with an exhaustive breadth-first crawl of the training sites. Unpack the training
 mirrors (steps 2 and 3, with `--include "warcs/train/*"`), copy
 `experiments/example_config.yaml` to `training_store.yaml`, and set
@@ -354,7 +350,7 @@ mirrors (steps 2 and 3, with `--include "warcs/train/*"`), copy
 ```yaml
 seeds_path: "datasets/training.txt"
 strategy: "BreadthFirstSearchScore"
-ranking: 10
+ranking: 0
 use_embeddings: "yes"
 embeddings_model: "all-mpnet-base-v2"
 max_pages: 0
@@ -366,9 +362,11 @@ max_links_per_page: 0
 ```
 
 The crawl writes the index
-`breadthfirstsearchscore-top10-re_ranking0-coldstart-ratio-<commit>-training-all-mpnet-base-v2`,
+`breadthfirstsearchscore-top0-re_ranking0-coldstart-ratio-<commit>-training-all-mpnet-base-v2`,
 where `<commit>` is the commit of your checkout. This index is the offline store for
-the generic encoder. For the fine-tuned encoder, run the same crawl again with
+the generic encoder. The key to differentiate it from other BFS runs is "training" keywords (
+if you want your applications or services to reference a new name without moving or copying physical data, 
+you can use an index alias). For the fine-tuned encoder, run the same crawl again with
 
 ```yaml
 embeddings_model: "anchor-product-page-mpnet-base"
@@ -377,7 +375,7 @@ embeddings_cache: "data/embeddings_finetuned.db"
 ```
 
 which writes the same pages, embedded with that encoder, to
-`breadthfirstsearchscore-top10-re_ranking0-coldstart-ratio-<commit>-training-anchor-product-page-mpnet-base`.
+`breadthfirstsearchscore-top0-re_ranking0-coldstart-ratio-<commit>-training-anchor-product-page-mpnet-base`.
 
 A run uses an offline store through its `start_data` field: the store's index name, or
 `coldstart+<name>` for the combined store. Approximate kNN searches 1,000 candidates
