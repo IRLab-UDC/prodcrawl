@@ -95,10 +95,9 @@ runs can differ slightly.
 
 ## Evaluation budget
 
-The paper reports MAP@b for budgets b up to 30 downloads per site, and AUMC, the area
-under the MAP@b curve for b = 1..30. The crawls themselves continue further, up to 252
-responses per site on validation and 265 on test. The figures below show why 30
-downloads per site are enough to compare strategies.
+The paper reports MAP@b for budgets b up to 30 downloads per site, and AUC, the area
+under the MAP@b curve for b = 1..30. The figures below show why 30 downloads per site 
+are enough to compare strategies.
 
 We crawled the 136 test sites with an oracle, `OracleScore`, which scores a link 1 if
 the judgments mark its target page as relevant and 0 otherwise. The oracle knows which
@@ -112,7 +111,7 @@ The first figure shows, for each download position i, the share of test sites wh
 i-th download is relevant. A site whose crawl ended before download i counts as not
 relevant, and positions are averaged over logarithmic bins. The vertical line marks
 download 30. *Relevant pages first* is an idealised crawler that downloads all relevant
-pages of a site before any other page, regardless of links.
+pages of a site before any other page, regardless of links ("teleporting").
 
 - The share of relevant downloads falls as the crawl goes on. For the oracle, it falls
   from 84% at the first download to 30% over downloads 21 to 30.
@@ -121,7 +120,7 @@ pages of a site before any other page, regardless of links.
   downloads 21 to 30.
 - The crawlers differ mostly in their first downloads. At the first download, the share
   is 84% for the oracle, 18% for BFS and 8% for DFS. Beyond download 30, the three stay
-  within 7 percentage points of each other.
+  within 7 percentage points of each other (these crawls continue further, up to 265 pages).
 
 Downloads beyond 30 therefore add little to tell strategies apart.
 
@@ -129,15 +128,15 @@ Downloads beyond 30 therefore add little to tell strategies apart.
 
 The second figure repeats Fig. 1 of the paper, MAP@b on the test sites of the
 configurations selected on validation, with the oracle added. The oracle's MAP@b rises
-from .213 at b = 1 to .453 at b = 10 and .549 at b = 30. Over the rest of its crawl, up
-to 264 downloads per site, it reaches only .651. The oracle thus obtains 84% of its
+from .213 at b = 1 to .453 at b = 10 and .549 at b = 30. The oracle thus obtains 84% of its
 whole-crawl MAP within the first 30 downloads. At b = 30, the best configuration of the
 paper (exact kNN with the fine-tuned encoder and the offline store) reaches .232 and BFS
 .156. A crawler that downloads only relevant pages would reach .758.
 
 To run the oracle, set `strategy: "OracleScore"`, `ranking: 0` and
 `use_embeddings: "no"` in a copy of `experiments/example_config.yaml`, with the seeds
-and `max_pages` of step 9.
+and of test split, and a number of `max_pages` big enough (for test split, we have used 265, which is
+around 14% percent of mean pages per site).
 
 ## Running the experiments
 
